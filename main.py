@@ -11,8 +11,8 @@ CANNY_HIGH = 200
 
 HOUGH_RHO = 1
 HOUGH_THETA = np.pi / 180
-HOUGH_THRESHOLD = 18
-HOUGH_MIN_LINE_LENGTH = 20
+HOUGH_THRESHOLD = 22
+HOUGH_MIN_LINE_LENGTH = 21
 HOUGH_MAX_LINE_GAP = 30
 
 # =============================
@@ -55,9 +55,16 @@ def filter_lines(lines):
 
 def draw_lane_lines(image, segments):
     line_image = np.zeros_like(image)
+    width = image.shape[1]
 
     for (x1, y1, x2, y2) in segments:
         cv2.line(line_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+    # Find the segment whose midpoint is closest to the horizontal center of the image
+    center_segment = min(segments, key=lambda s: abs((s[0] + s[2]) // 2 - width // 2))
+    cx = (center_segment[0] + center_segment[2]) // 2
+    cy = (center_segment[1] + center_segment[3]) // 2
+    cv2.circle(line_image, (cx, cy), 8, (0, 0, 255), -1)
 
     combined = cv2.addWeighted(image, 0.8, line_image, 1, 1)
     return combined
