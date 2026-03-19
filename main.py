@@ -15,7 +15,7 @@ HOUGH_THRESHOLD = 22
 HOUGH_MIN_LINE_LENGTH = 21
 HOUGH_MAX_LINE_GAP = 30
 
-MERGE_X_TOLERANCE = 28 # Max x-distance between segment midpoints to merge into one line
+MERGE_X_TOLERANCE = 50 # Max x-distance between segment midpoints to merge into one line
 
 # =============================
 # HELPER FUNCTIONS
@@ -55,25 +55,33 @@ def filter_lines(lines):
 
 
 
+def x_at_y(x1, y1, x2, y2, y):
+    """Return the x coordinate of the line through (x1,y1)-(x2,y2) at height y."""
+    if y2 == y1:
+        return (x1 + x2) // 2
+    return int(x1 + (x2 - x1) * (y - y1) / (y2 - y1))
+
+
 def cluster_and_fit(segments, image_height, x_tolerance):
-    """Cluster a list of same-slope segments by x-midpoint and fit one line per cluster."""
+    """Cluster same-slope segments by their projected x at image bottom, fit one line per cluster."""
     if not segments:
         return []
-    segments = sorted(segments, key=lambda s: (s[0] + s[2]) // 2)
+    y_max = image_height
+    y_min = int(image_height * 0.55)
+    # Sort by projected x at bottom of image
+    segments = sorted(segments, key=lambda s: x_at_y(s[0], s[1], s[2], s[3], y_max))
     clusters = []
     current = [segments[0]]
     for seg in segments[1:]:
-        cx = (seg[0] + seg[2]) // 2
-        cluster_cx = sum((s[0] + s[2]) // 2 for s in current) // len(current)
-        if abs(cx - cluster_cx) <= x_tolerance:
+        seg_x_bot = x_at_y(seg[0], seg[1], seg[2], seg[3], y_max)
+        cluster_x_bot = sum(x_at_y(s[0], s[1], s[2], s[3], y_max) for s in current) // len(current)
+        if abs(seg_x_bot - cluster_x_bot) <= x_tolerance:
             current.append(seg)
         else:
             clusters.append(current)
             current = [seg]
     clusters.append(current)
 
-    y_min = int(image_height * 0.55)
-    y_max = image_height
     merged = []
     for cluster in clusters:
         pts = [(x, y) for (x1, y1, x2, y2) in cluster for x, y in [(x1, y1), (x2, y2)]]
